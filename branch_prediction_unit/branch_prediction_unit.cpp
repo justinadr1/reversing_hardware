@@ -7,11 +7,12 @@
 
 int main() 
 {
-    const int SIZE = 32768;
+    const int SIZE = 32'768;
     std::vector<int> data(SIZE);
+    
     for (int i = 0; i < SIZE; ++i) 
         data[i] = std::rand() % 1024;
-
+    
     
     // std::sort(data.begin(), data.end()); 
     // If data is sorted, the BPU predicts perfectly
@@ -25,11 +26,11 @@ int main()
         for (int j = 0; j < SIZE; ++j) 
         {
             // This is the branch the BPU must predict
-            if (data[j] >= 512) sum += data[j];
+            if (data[j] >= 512) 
+                sum += data[j];
         }
     }
 
     double duration = static_cast<double>(clock() - start) / CLOCKS_PER_SEC;
-    std::cout << "Time: " << duration << "s" << std::endl;
-    return 0;
+    std::cout << "Time: " << duration << "s\n";
 }

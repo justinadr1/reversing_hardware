@@ -39,12 +39,12 @@ int main()
 
     // TEST CASE 1: SMT siblings (logical core 0 and 1)
     // Takes more cycles because its shared
-    SetThreadAffinityMask(t1, 1ULL << 0);
-    SetThreadAffinityMask(t2, 1ULL << 2);
-
-    // TEST CASE 2: Seperate cores
     // SetThreadAffinityMask(t1, 1ULL << 0);
     // SetThreadAffinityMask(t2, 1ULL << 1);
+
+    // TEST CASE 2: Seperate cores
+    SetThreadAffinityMask(t1, 1ULL << 0);
+    SetThreadAffinityMask(t2, 1ULL << 2);
 
     ResumeThread(t1);
     ResumeThread(t2);
@@ -55,9 +55,9 @@ int main()
     unsigned __int64 diff1 = r1.end_cycles - r1.start_cycles;
     unsigned __int64 diff2 = r2.end_cycles - r2.start_cycles;
 
-    printf("SMT Contention Report:\n");
+    printf("Cache port saturation report:\n");
     printf("Logical Core 0 Cycles: %llu\n", diff1);
-    printf("Logical Core 1 Cycles: %llu\n", diff2);
+    printf("Logical Core 2 Cycles: %llu\n", diff2);
     printf("Total execution overhead: %llu cycles\n", (diff1 > diff2) ? diff1 : diff2);
 
     return 0;
